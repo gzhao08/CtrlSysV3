@@ -1,0 +1,5 @@
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/source/hdl/config_pkg.sv" into library work
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/source/hdl/data_buff.sv" into library work
+INFO: [VRFC 10-311] analyzing module data_buff
+INFO: [VRFC 10-2263] Analyzing SystemVerilog file "C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/tests/data_buff/data_buff_tb.sv" into library work
+INFO: [VRFC 10-311] analyzing module tb

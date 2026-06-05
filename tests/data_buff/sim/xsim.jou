@@ -1,0 +1,28 @@
+#-----------------------------------------------------------
+# xsim v2024.2 (64-bit)
+# SW Build 5239630 on Fri Nov 08 22:35:27 MST 2024
+# IP Build 5239520 on Sun Nov 10 16:12:51 MST 2024
+# SharedData Build 5239561 on Fri Nov 08 14:39:27 MST 2024
+# Start of session at: Fri Jun  5 15:19:03 2026
+# Process ID         : 4132
+# Current directory  : C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/tests/data_buff/sim
+# Command line       : xsim.exe -source {xsim.dir/sim/xsim_script.tcl}
+# Log file           : C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/tests/data_buff/sim/xsim.log
+# Journal file       : C:/Users/JS Lab/Documents/gordo/RedPitaya/CtrlSysV3/tests/data_buff/sim\xsim.jou
+# Running On         : DESKTOP-SH3N8PC
+# Platform           : Windows Server 2016 or Windows 10
+# Operating System   : 19045
+# Processor Detail   : Intel(R) Core(TM) i7-7800X CPU @ 3.50GHz
+# CPU Frequency      : 3504 MHz
+# CPU Physical cores : 6
+# CPU Logical cores  : 12
+# Host memory        : 34047 MB
+# Swap memory        : 5100 MB
+# Total Virtual      : 39147 MB
+# Available Virtual  : 25915 MB
+#-----------------------------------------------------------
+start_gui
+source xsim.dir/sim/xsim_script.tcl
+add_wave {{/tb/clk}} {{/tb/in_frame}} {{/tb/out_frame}} {{/tb/rdata}} {{/tb/empty}} {{/tb/rd_en}} {{/tb/wr_en}} {{/tb/full}} {{/tb/rst}} {{/tb/stop}} 
+run all
+close_sim

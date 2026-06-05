@@ -1,0 +1,381 @@
+/* 
+Name: Gordon Zhao
+File: I2C_reader.v
+Description: an I2C master for performing burst reads
+*/
+
+`timescale 1ns/1ps
+
+module I2C_reader #(
+    parameter reg [6:0] SENSOR_ADDR = 7'h68, // I2C sensors have a 7 bit address 
+    parameter reg [7:0] REG_ADDR = 8'd18, // the register to start reading data from
+    parameter reg [7:0] DATA_BYTES = 8'd18 // the number of data bytes to read
+)(
+    input               clk,
+    input               rst,
+    input               start,
+    output reg [143:0]  data_out, // 3 data, 3 directions, 2 bytes each = 18 bytes = 144 bits
+    output              busy,
+    output reg          done,
+    output reg          ack_error,
+    // I2C_bus.ctrl_side   I2C_out
+    input        sda_i,         // ‾‾|
+    output       sda_o,         //   |--> sda 
+    output       sda_t,         // __|
+    input        scl_i,         // ‾‾|
+    output       scl_o,         //   |--> scl
+    output       scl_t,         // __|
+    output [3:0] stateOut       // debug
+);	
+    
+/* 
+The sequence is:
+
+State:    1       2       3       4       5      6       7       8     9     10     11     12     13
+Master: Start | Addr+W |     | RegAddr |     | Start | Addr+R |     |      | ACK |      | NACK | STOP |
+Slave:        |        | ACK |         | ACK |       |        | ACK | DATA |     | DATA |      |      |
+
+We can hardcode the sequence and just make sure that the slave gives the necessary ACKs
+
+A Start is where the Master:
+1. Pulls SDA low
+2. then pulls SCL low (start the clock)
+
+
+*/
+
+reg [3:0] state = 0; // IDLE
+reg [7:0] counter = 7;
+
+reg [7:0] temp_data; // for storing things to send to sensor
+reg [7:0] num_data_bytes = DATA_BYTES - 1; // -1 because 0 indexed
+reg [7:0] data_index = 0;
+
+reg sda_drive_low = 0; // 0 means release and 1 means drive low
+reg sda_update = 0;
+reg scl_follow = 0; // 0 means release and 1 means follow the 400kHz clk 
+
+reg updateState = 0;
+reg [3:0] nextState = 0;
+
+reg [7:0] tickCounter = 63;
+reg tick_en = 0;
+reg i2c_tick = 0; // basically an 800kHz clock
+reg i2c_tick_parity = 1;
+
+// assign i2c_sda = sda_drive_low ? 1'b0 : 1'bz;
+
+assign sda_o = 1'b0;
+assign sda_t = sda_drive_low ? 1'b0 : 1'b1;
+
+assign scl_o = 1'b0;
+assign scl_t = scl_follow ? i2c_tick_parity : 1'b1;
+
+assign stateOut = state; // temp
+
+assign busy = (state == 0) ? 1'b0 : 1'b1;
+
+
+always @(posedge clk) begin
+    
+    // i2c timing stuff
+    i2c_tick <= 1'b0;
+
+    if (rst) begin
+        state <= 0;
+        tickCounter <= 0;
+        i2c_tick_parity <= 1'b0;
+        done <= 0;
+        ack_error <= 0;
+        tick_en <= 0;
+        sda_drive_low <= 0;
+        scl_follow <= 0;
+        updateState <= 0;
+        nextState <= 0;
+        counter <= 7;
+        num_data_bytes <= DATA_BYTES - 1;
+        data_out <= 143'b0;
+    end else if (tick_en) begin
+        if (tickCounter == 63) begin
+            tickCounter <= 0;
+            i2c_tick <= 1'b1;
+        end 
+        else begin
+            if (tickCounter == 31) 
+                i2c_tick_parity <= ~i2c_tick_parity; 
+            tickCounter <= tickCounter + 1;
+        end
+    end
+        
+    else begin
+        done <= 0;
+        if (start && state == 0) begin
+            state <= 1;
+            done <= 0;
+            ack_error <= 0;
+            tick_en <= 1;   // start i2c timing
+        end
+    end
+
+    if (i2c_tick) begin
+
+        case (state)
+            
+            1: begin
+                // send start condition
+                if (i2c_tick_parity) begin
+                    // when SCL is high pull SDA low and start clock
+                    sda_drive_low <= 1;
+                    scl_follow <= 1;
+                    temp_data <= {SENSOR_ADDR,1'b0}; // 0 for Write
+                    updateState <= 1;
+                end
+
+                // go
+                else if (updateState) begin
+                    updateState <= 0;
+                    state <= 2;
+                    sda_drive_low <= !temp_data[7]; // send the MSB
+                    counter <= 6;
+                end 
+            end
+
+            2: begin
+                // send address and read write bit
+                // data transmission only happens while SCL is low
+                if (i2c_tick_parity == 0) begin
+
+                    if (updateState == 1) begin
+                        state <= 3;
+                        updateState <= 0;
+                        counter <= 7;
+                        sda_drive_low <= 0; // release SDA after transmission
+                    end
+
+                    else begin 
+
+                        sda_drive_low <= !temp_data[counter]; // invert because 0 means SDA is HIGH and vice versa
+
+                        if (counter == 0) begin
+                            updateState <= 1;
+                        end
+
+                        else
+                            counter <= counter - 1;
+                    end
+                end
+            end
+
+            3: begin
+                // check for ACK
+                // sensor must actively pull SDA low
+                if (i2c_tick_parity) begin
+                    if (sda_i == 0) begin       // check for ACK
+                        nextState <= 4;
+                        temp_data <= REG_ADDR;
+                    end else begin
+                        // if NACK then return to idle state and show error
+                        nextState <= 0;
+                        ack_error <= 1; 
+                        sda_drive_low <= 0;
+                        scl_follow <= 0;
+                    end
+                    updateState <= 1;
+                end
+
+                else if (updateState) begin
+                    updateState <= 0;
+                    state <= nextState;
+                    sda_drive_low <= !temp_data[7]; // send the MSB
+                    counter <= 6;
+                end
+            end
+
+            4: begin
+                // send register address
+                // data transmission only happens while SCL is low
+                if (i2c_tick_parity == 0) begin
+
+                    if (updateState == 1) begin
+                        state <= 5;
+                        updateState <= 0;
+                        counter <= 7;
+                        sda_drive_low <= 0; // release SDA after transmission
+                    end
+
+                    else begin 
+
+                        sda_drive_low <= !temp_data[counter]; // invert because 0 means SDA is HIGH and vice versa
+
+                        if (counter == 0) begin
+                            updateState <= 1;
+                        end
+
+                        else
+                            counter <= counter - 1;
+                    end
+                end
+            end
+
+            5: begin
+                // check for ACK; same as state 3
+                if (i2c_tick_parity) begin
+                    if (sda_i == 0) begin       // check for ACK
+                        nextState <= 6;
+                        temp_data <= REG_ADDR;
+                    end else begin
+                        // if NACK then return to idle state and show error
+                        nextState <= 0;
+                        ack_error <= 1; 
+                        sda_drive_low <= 0;
+                        scl_follow <= 0;
+                    end
+                    updateState <= 1;
+                end
+
+                else if (updateState) begin
+                    updateState <= 0;
+                    state <= nextState;
+                    sda_drive_low <= 0; // release SDA to prepare to send repeated Start
+                    counter <= 6;
+                end
+
+            end
+
+            6: begin
+                // send repeated start
+                if (i2c_tick_parity) begin
+                    sda_drive_low <= 1; // HIGH -> LOW transition during a HIGH SCL to indicate Start
+                    temp_data <= {SENSOR_ADDR,1'b1}; // 1 for Read
+                    updateState <= 1;
+                end
+
+                else if (updateState) begin
+                    updateState <= 0;
+                    state <= 7;
+                    sda_drive_low <= !temp_data[7]; // send the MSB
+                    counter <= 6;
+                end 
+            end
+
+            7: begin
+                // send sensor address + Read(0)
+                // SDA changes only happen while SCL is low
+                if (i2c_tick_parity == 0) begin
+
+                    if (updateState == 1) begin
+                        state <= 8;
+                        updateState <= 0;
+                        counter <= 7;
+                        sda_drive_low <= 0; // release SDA after transmission
+                    end
+
+                    else begin 
+
+                        sda_drive_low <= !temp_data[counter]; // invert because 0 means SDA is HIGH and vice versa
+
+                        if (counter == 0) begin
+                            updateState <= 1;
+                        end
+
+                        else
+                            counter <= counter - 1;
+                    end
+                end
+            end
+
+            8: begin
+                // check for ACK
+                // sensor must actively pull SDA low
+                if (i2c_tick_parity) begin
+                    if (sda_i == 0) begin       // check for ACK
+                        nextState <= 9;
+                    end else begin
+                        // if NACK then return to idle state and show error
+                        nextState <= 0;
+                        ack_error <= 1; 
+                        sda_drive_low <= 0;
+                        scl_follow <= 0;
+                    end
+                    updateState <= 1;
+                end
+
+                else if (updateState) begin
+                    updateState <= 0;
+                    state <= nextState;
+                    counter <= 7;
+                end
+            end
+
+            9: begin
+                
+                if (updateState == 1 && i2c_tick_parity == 0) begin
+                    state <= nextState;
+                    counter <= 7;
+                    updateState <= 0;
+                    if (nextState == 10)
+                        sda_drive_low <= 1; // ACK
+                    else begin
+                        sda_drive_low <= 0; // NACK
+                    end
+                end
+
+                else if (i2c_tick_parity) begin 
+                    // read and store data
+                    data_out[num_data_bytes*8+counter] <= sda_i;
+                    if (counter == 0) begin
+                        counter <= 7; // reset counter
+                        updateState <= 1;
+                        if (num_data_bytes == 0) begin 
+                            // all data received -> send NACK then STOP
+                            nextState <= 11;
+                        end
+                        else begin
+                            // more data to receive -> send ACK then come back to this state
+                            nextState <= 10;
+                            num_data_bytes <= num_data_bytes-1;
+                            
+                        end
+                    end else 
+                        counter <= counter - 1;
+                end
+                
+            end
+
+            10: begin
+                // wait out ACK then go back to 9
+                if (!i2c_tick_parity) begin 
+                    sda_drive_low <= 0; // release SDA to prep for reading
+                    state <= 9;
+                end
+            end
+
+            11: begin
+                // wait out the NACK and then send STOP
+
+                // first low phase: pull SDA low while SCL is low to prepare STOP
+                if (!updateState && !i2c_tick_parity) begin
+                    sda_drive_low <= 1;
+                    updateState <= 1;
+                end
+
+                // high phase: release SDA while SCL is high -> STOP condition
+                else if (updateState && i2c_tick_parity) begin
+                    sda_drive_low <= 0;
+                    updateState <= 0;
+                    done <= 1;
+                    state <= 0;
+                    scl_follow <= 0;
+                    tick_en <= 0;
+                    tickCounter <= 156;
+                    num_data_bytes <= DATA_BYTES - 1;
+                end
+            end
+
+        endcase
+    end
+
+end
+
+
+endmodule
