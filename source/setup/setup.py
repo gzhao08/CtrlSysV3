@@ -2,6 +2,7 @@ import json
 import os
 from pathlib import Path
 
+
 # Get the absolute path of the directory containing this file
 script_dir = os.path.dirname(os.path.abspath(__file__))
 os.chdir(script_dir)
@@ -52,9 +53,5 @@ with open(sv_config_path, "w") as sv_file:
                 sv_file.write(f'\t{line}')
             sv_file.write("\n")
         sv_file.write("\n")
-
-    
-
-
 
     sv_file.write("\nendpackage")
