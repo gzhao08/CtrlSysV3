@@ -11,9 +11,7 @@ package config_pkg;
 	    logic [143:0]   sensor_data;  // 
 	} raw_packet_t;
 	
-	typedef struct packed{
-	    raw_packet_t packets [NUM_SENSORS-1:0];
-	} raw_frame_t;
+	typedef raw_packet_t raw_frame_t [NUM_SENSORS];
 
 
 endpackage

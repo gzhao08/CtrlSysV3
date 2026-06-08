@@ -7,46 +7,40 @@ Description: an I2C master for performing burst reads
 import config_pkg::*; 
 
 module I2C_reader #(
-    parameter reg [6:0] SENSOR_ADDR = 7'h68, // I2C sensors have a 7 bit address 
-    parameter reg [7:0] REG_ADDR = 8'd18, // the register to start reading data from
-    parameter reg [7:0] DATA_BYTES = 8'd18 // the number of data bytes to read
+    parameter logic [6:0] SENSOR_ADDR = 7'h68, // I2C sensors have a 7 bit address 
+    parameter logic [7:0] REG_ADDR = 8'd18, // the register to start reading data from
+    parameter logic [7:0] DATA_BYTES = 8'd18 // the number of data bytes to read
 )(
     input                   clk,
     input                   rst,
     input                   start,
     input logic [63:0]      timestamp,    
-    output raw_packet_t  packet_out,
+    output raw_packet_t     packet_out,
     output                  busy,
-    output reg              done,
-    output reg              ack_error,
+    output logic            done,
+    output logic            ack_error,
 
     `ifdef DEBUG         
     output [3:0] stateOut,
     `endif 
     
-    // I2C_bus.ctrl_side   I2C_out
-    input        sda_i,         
-    output       sda_o,         
-    output       sda_t,         
-    input        scl_i,         
-    output       scl_o,         
-    output       scl_t
+    I2C_bus.master i2c
 );	
 
 
-reg [3:0] state = 0; // IDLE
-reg [7:0] counter = 7;
+logic [3:0] state = 0; // IDLE
+logic [7:0] counter = 7;
 
-reg [7:0] temp_data; // for storing things to send to sensor
-reg [7:0] num_data_bytes = DATA_BYTES - 1; // -1 because 0 indexed
-reg [7:0] data_index = 0;
+logic [7:0] temp_data; // for storing things to send to sensor
+logic [7:0] num_data_bytes = DATA_BYTES - 1; // -1 because 0 indexed
+logic [7:0] data_index = 0;
 
-reg sda_drive_low = 0; // 0 means release and 1 means drive low
-reg sda_update = 0;
-reg scl_follow = 0; // 0 means release and 1 means follow the 400kHz clk 
+logic sda_drive_low = 0; // 0 means release and 1 means drive low
+logic sda_update = 0;
+logic scl_follow = 0; // 0 means release and 1 means follow the 400kHz clk 
 
-reg updateState = 0;
-reg [3:0] nextState = 0;
+logic updateState = 0;
+logic [3:0] nextState = 0;
 
 // packet
 logic [63:0]    init_read_ts; // timestamp that read was initiated
@@ -54,16 +48,16 @@ logic [63:0]    done_read_ts; // timestamp that read finished
 logic [143:0]   sensor_data;  //
 
 // timing
-reg [7:0] tickCounter = 63;
-reg tick_en = 0;
-reg i2c_tick = 0; // basically an 800kHz clock
-reg i2c_tick_parity = 1;
+logic [7:0] tickCounter = 63;
+logic tick_en = 0;
+logic i2c_tick = 0; // basically an 800kHz clock
+logic i2c_tick_parity = 1;
 
-assign sda_o = 1'b0;
-assign sda_t = sda_drive_low ? 1'b0 : 1'b1;
+assign i2c.sda_o = 1'b0;
+assign i2c.sda_t = sda_drive_low ? 1'b0 : 1'b1;
 
-assign scl_o = 1'b0;
-assign scl_t = scl_follow ? i2c_tick_parity : 1'b1;
+assign i2c.scl_o = 1'b0;
+assign i2c.scl_t = scl_follow ? i2c_tick_parity : 1'b1;
 
 assign stateOut = state; // temp
 
@@ -171,7 +165,7 @@ always @(posedge clk) begin
                 // check for ACK
                 // sensor must actively pull SDA low
                 if (i2c_tick_parity) begin
-                    if (sda_i == 0) begin       // check for ACK
+                    if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 4;
                         temp_data <= REG_ADDR;
                     end else begin
@@ -221,7 +215,7 @@ always @(posedge clk) begin
             5: begin
                 // check for ACK; same as state 3
                 if (i2c_tick_parity) begin
-                    if (sda_i == 0) begin       // check for ACK
+                    if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 6;
                         temp_data <= REG_ADDR;
                     end else begin
@@ -289,7 +283,7 @@ always @(posedge clk) begin
                 // check for ACK
                 // sensor must actively pull SDA low
                 if (i2c_tick_parity) begin
-                    if (sda_i == 0) begin       // check for ACK
+                    if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 9;
                     end else begin
                         // if NACK then return to idle state and show error
@@ -323,7 +317,7 @@ always @(posedge clk) begin
 
                 else if (i2c_tick_parity) begin 
                     // read and store data
-                    sensor_data[num_data_bytes*8+counter] <= sda_i;
+                    sensor_data[num_data_bytes*8+counter] <= i2c.sda_i;
                     if (counter == 0) begin
                         counter <= 7; // reset counter
                         updateState <= 1;
