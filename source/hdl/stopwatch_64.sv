@@ -1,6 +1,6 @@
 /* 
 Name: Gordon Zhao
-File: timekeep.sv
+File: stopwatch_64.sv
 Description: a block for storing time
 a 64 bit counter incrementing every 20ns (50MHz clock) would take > 10000 years to wrap
 */

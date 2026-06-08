@@ -4,45 +4,35 @@ File: I2C_reader.v
 Description: an I2C master for performing burst reads
 */
 
-`timescale 1ns/1ps
+import config_pkg::*; 
 
 module I2C_reader #(
     parameter reg [6:0] SENSOR_ADDR = 7'h68, // I2C sensors have a 7 bit address 
     parameter reg [7:0] REG_ADDR = 8'd18, // the register to start reading data from
     parameter reg [7:0] DATA_BYTES = 8'd18 // the number of data bytes to read
 )(
-    input               clk,
-    input               rst,
-    input               start,
-    output reg [143:0]  data_out, // 3 data, 3 directions, 2 bytes each = 18 bytes = 144 bits
-    output              busy,
-    output reg          done,
-    output reg          ack_error,
-    // I2C_bus.ctrl_side   I2C_out
-    input        sda_i,         // ‾‾|
-    output       sda_o,         //   |--> sda 
-    output       sda_t,         // __|
-    input        scl_i,         // ‾‾|
-    output       scl_o,         //   |--> scl
-    output       scl_t,         // __|
-    output [3:0] stateOut       // debug
-);	
+    input                   clk,
+    input                   rst,
+    input                   start,
+    input logic [63:0]      timestamp,    
+    output sensor_packet_t  packet_out,
+    output                  busy,
+    output reg              done,
+    output reg              ack_error,
+
+    `ifdef DEBUG         
+    output [3:0] stateOut,
+    `endif 
     
-/* 
-The sequence is:
+    // I2C_bus.ctrl_side   I2C_out
+    input        sda_i,         
+    output       sda_o,         
+    output       sda_t,         
+    input        scl_i,         
+    output       scl_o,         
+    output       scl_t
+);	
 
-State:    1       2       3       4       5      6       7       8     9     10     11     12     13
-Master: Start | Addr+W |     | RegAddr |     | Start | Addr+R |     |      | ACK |      | NACK | STOP |
-Slave:        |        | ACK |         | ACK |       |        | ACK | DATA |     | DATA |      |      |
-
-We can hardcode the sequence and just make sure that the slave gives the necessary ACKs
-
-A Start is where the Master:
-1. Pulls SDA low
-2. then pulls SCL low (start the clock)
-
-
-*/
 
 reg [3:0] state = 0; // IDLE
 reg [7:0] counter = 7;
@@ -58,12 +48,16 @@ reg scl_follow = 0; // 0 means release and 1 means follow the 400kHz clk
 reg updateState = 0;
 reg [3:0] nextState = 0;
 
+// packet
+logic [63:0]    init_read_ts; // timestamp that read was initiated
+logic [63:0]    done_read_ts; // timestamp that read finished
+logic [143:0]   sensor_data;  //
+
+// timing
 reg [7:0] tickCounter = 63;
 reg tick_en = 0;
 reg i2c_tick = 0; // basically an 800kHz clock
 reg i2c_tick_parity = 1;
-
-// assign i2c_sda = sda_drive_low ? 1'b0 : 1'bz;
 
 assign sda_o = 1'b0;
 assign sda_t = sda_drive_low ? 1'b0 : 1'b1;
@@ -75,6 +69,12 @@ assign stateOut = state; // temp
 
 assign busy = (state == 0) ? 1'b0 : 1'b1;
 
+always_comb begin
+    packet_out.init_read_ts = init_read_ts;
+    packet_out.done_read_ts = done_read_ts;
+    packet_out.valid        = ack_error;
+    packet_out.sensor_data  = sensor_data;
+end
 
 always @(posedge clk) begin
     
@@ -94,7 +94,7 @@ always @(posedge clk) begin
         nextState <= 0;
         counter <= 7;
         num_data_bytes <= DATA_BYTES - 1;
-        data_out <= 143'b0;
+        sensor_data <= 143'b0;
     end else if (tick_en) begin
         if (tickCounter == 63) begin
             tickCounter <= 0;
@@ -114,6 +114,7 @@ always @(posedge clk) begin
             done <= 0;
             ack_error <= 0;
             tick_en <= 1;   // start i2c timing
+            init_read_ts <= timestamp;
         end
     end
 
@@ -322,7 +323,7 @@ always @(posedge clk) begin
 
                 else if (i2c_tick_parity) begin 
                     // read and store data
-                    data_out[num_data_bytes*8+counter] <= sda_i;
+                    sensor_data[num_data_bytes*8+counter] <= sda_i;
                     if (counter == 0) begin
                         counter <= 7; // reset counter
                         updateState <= 1;
@@ -369,6 +370,7 @@ always @(posedge clk) begin
                     tick_en <= 0;
                     tickCounter <= 156;
                     num_data_bytes <= DATA_BYTES - 1;
+                    done_read_ts <= timestamp;
                 end
             end
 

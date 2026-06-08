@@ -17,8 +17,8 @@ module data_buff (
     output logic        full
 );
 
-logic [$clog2(BUFFER_SIZE)-1:0]     wptr;
-logic [$clog2(BUFFER_SIZE)-1:0]     rptr;
+logic [$clog2(BUFFER_SIZE)-1:0] wptr;
+logic [$clog2(BUFFER_SIZE)-1:0] rptr;
 data_frame_t fifo [BUFFER_SIZE-1:0];
 
 always @(posedge clk) begin
