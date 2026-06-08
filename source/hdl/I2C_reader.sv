@@ -15,7 +15,7 @@ module I2C_reader #(
     input                   rst,
     input                   start,
     input logic [63:0]      timestamp,    
-    output sensor_packet_t  packet_out,
+    output raw_packet_t  packet_out,
     output                  busy,
     output reg              done,
     output reg              ack_error,

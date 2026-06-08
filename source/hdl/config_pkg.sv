@@ -9,11 +9,11 @@ package config_pkg;
 	    logic [63:0]    done_read_ts; // timestamp that read finished
 	    logic           valid;        // whether data is valid or not
 	    logic [143:0]   sensor_data;  // 
-	} sensor_packet_t;
-
+	} raw_packet_t;
+	
 	typedef struct packed{
-	    sensor_packet_t packets [NUM_SENSORS-1:0];
-	} data_frame_t;
+	    raw_packet_t packets [NUM_SENSORS-1:0];
+	} raw_frame_t;
 
 
 endpackage

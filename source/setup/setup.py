@@ -1,19 +1,20 @@
 import json
 import os
+from pathlib import Path
 
 # Get the absolute path of the directory containing this file
 script_dir = os.path.dirname(os.path.abspath(__file__))
-
-# Change the working directory
 os.chdir(script_dir)
-
 
 system_config_path = r"../config/system_config.json"
 sv_config_path = r"../hdl/config_pkg.sv"
 sv_struct_path = r"../hdl/struct/"
-packet_path = sv_struct_path + r"sensor_packet.sv"
-frame_path = sv_struct_path + r"data_frame.sv"
-struct_paths = [packet_path,frame_path]
+
+os.chdir(sv_struct_path)
+
+struct_paths = [f"../hdl/struct/{f.name}" for f in Path('.').iterdir() if f.is_file()]
+
+os.chdir(script_dir)
 
 # Open and parse the JSON file
 with open(system_config_path, "r", encoding="utf-8") as config_file:

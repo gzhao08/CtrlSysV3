@@ -11,15 +11,15 @@ module data_buff (
     input logic         rst,
     input logic         wr_en,
     input logic         rd_en,
-    input data_frame_t  in_frame,
-    output data_frame_t out_frame,
+    input raw_frame_t  in_frame,
+    output raw_frame_t out_frame,
     output logic        empty,
     output logic        full
 );
 
 logic [$clog2(BUFFER_SIZE)-1:0] wptr;
 logic [$clog2(BUFFER_SIZE)-1:0] rptr;
-data_frame_t fifo [BUFFER_SIZE-1:0];
+raw_frame_t fifo [BUFFER_SIZE-1:0];
 
 always @(posedge clk) begin
 
