@@ -1,4 +1,5 @@
 import config_pkg::*;
+`include "config_def.svh"
 
 module top(
     input logic clk,
@@ -36,11 +37,11 @@ sensors_reader u_sensors_reader (
     // .done(),
     // .error(),
 
-    `ifdef DEBUG         
-    .states(),
-    `endif 
+    // `ifdef DEBUG         
+    // .states(),
+    // `endif 
     
-    i2c_bus(i2c_bus)
+    .i2c_bus(i2c_bus)
 );
 
 endmodule;

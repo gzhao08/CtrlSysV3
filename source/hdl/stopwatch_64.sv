@@ -5,7 +5,7 @@ Description: a block for storing time
 a 64 bit counter incrementing every 20ns (50MHz clock) would take > 10000 years to wrap
 */
 
-module timekeep (
+module stopwatch_64 (
     input               clk,
     input               rst,
     output logic [63:0] timestamp_counter

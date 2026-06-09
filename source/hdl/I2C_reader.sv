@@ -5,6 +5,7 @@ Description: an I2C master for performing burst reads
 */
 
 import config_pkg::*; 
+`include "config_def.svh"
 
 module I2C_reader #(
     parameter logic [6:0] SENSOR_ADDR = 7'h68, // I2C sensors have a 7 bit address 
@@ -20,9 +21,9 @@ module I2C_reader #(
     output logic            done,
     output logic            ack_error,
 
-    `ifdef DEBUG         
+    // `ifdef DEBUG         
     output [3:0] stateOut,
-    `endif 
+    // `endif 
     
     I2C_bus.master i2c
 );	

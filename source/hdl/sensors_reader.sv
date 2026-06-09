@@ -4,7 +4,8 @@ File: sensor_reader.v
 Description: instantiates NUM_SENSORS readers
 */
 
-import config_pkg::*; 
+import config_pkg::*;
+`include "config_def.svh"
 
 module sensors_reader (
     input                           clk,
@@ -16,9 +17,9 @@ module sensors_reader (
     output reg [NUM_SENSORS-1:0]    done,
     output reg [NUM_SENSORS-1:0]    error,
 
-    `ifdef DEBUG         
-    output states [NUM_SENSORS-1:0],
-    `endif 
+    // `ifdef DEBUG         
+    output logic [3:0] states [NUM_SENSORS-1:0],
+    // `endif 
     
     I2C_bus.master i2c_bus [NUM_SENSORS]
 );
@@ -38,9 +39,9 @@ generate
             .done       (done[i]),
             .ack_error  (error[i]),
 
-            `ifdef DEBUG         
-            .stateOut,  (states[i]),
-            `endif
+            // `ifdef DEBUG         
+            .stateOut   (states[i]),
+            // `endif
 
             .i2c (i2c_bus[i])
         );
