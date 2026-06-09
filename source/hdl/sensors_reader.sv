@@ -29,7 +29,11 @@ genvar i;
 generate
     for (i = 0; i < NUM_SENSORS; i++) begin : gen_sensor_reader
 
-        I2C_reader I2C_reader_inst (
+        I2C_reader #(
+            .SENSOR_ADDR(SENSOR_ADDRS[i]),
+            .REG_ADDR(SENSOR_REG_ADDRS[i]),
+            .DATA_BYTES(SENSOR_NUM_BYTES[i])
+        ) I2C_reader_inst (
             .clk        (clk),
             .rst        (rst),
             .start      (start),
@@ -45,6 +49,7 @@ generate
 
             .i2c (i2c_bus[i])
         );
+
     end
 endgenerate
 
