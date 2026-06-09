@@ -1,0 +1,6 @@
+{
+    "Protocol" : "I2C",
+    "Sensor_Address": 0,
+    "Register_Address" : 5,
+    "Num_Bytes" : 18
+}
