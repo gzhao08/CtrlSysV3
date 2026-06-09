@@ -4,24 +4,33 @@ from pathlib import Path
 
 
 # Get the absolute path of the directory containing this file
-script_dir = os.path.dirname(os.path.abspath(__file__))
-os.chdir(script_dir)
+cwd = os.getcwd()
 
-system_config_path = r"../config/system_config.json"
-sv_config_path = r"../hdl/config_pkg.sv"
-sv_struct_path = r"../hdl/struct/"
+system_config_path = r"source\config\system_config.json"
+sensor_config_path = r"source\config\sensors"
+sv_config_path = r"source\hdl\config_pkg.sv"
+sv_struct_path = r"source\hdl\struct"
 
 os.chdir(sv_struct_path)
 
-struct_paths = [f"../hdl/struct/{f.name}" for f in Path('.').iterdir() if f.is_file()]
+struct_paths = [f"source/hdl/struct/{f.name}" for f in Path('.').iterdir() if f.is_file()]
 
-os.chdir(script_dir)
+os.chdir(cwd)
 
 # Open and parse the JSON file
 with open(system_config_path, "r", encoding="utf-8") as config_file:
     data = json.load(config_file)
 
-# print(data)
+sensor_dir = Path(sensor_config_path)
+
+for sensor_file in sensor_dir.glob("*.json"):
+    with open(sensor_file, "r", encoding="utf-8") as f:
+        sensor_data = json.load(f)
+
+    sensor_name = sensor_file.stem
+
+    for key, val in sensor_data.items():
+        data[f"{sensor_name}_{key}"] = val
 
 
 
