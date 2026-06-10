@@ -28,28 +28,28 @@ module sensors_reader (
 genvar i;
 generate
     for (i = 0; i < NUM_SENSORS; i++) begin : gen_sensor_reader
+        if (SENSOR_PROTOCOLS[i] == "I2C") begin
+            I2C_reader #(
+                .SENSOR_ADDR(SENSOR_ADDRS[i]),
+                .REG_ADDR(SENSOR_REG_ADDRS[i]),
+                .DATA_BYTES(SENSOR_NUM_BYTES[i])
+            ) I2C_reader_inst (
+                .clk        (clk),
+                .rst        (rst),
+                .start      (start),
+                .timestamp  (timestamp),
+                .packet_out (frame_out[i]),
+                .busy       (busy[i]),
+                .done       (done[i]),
+                .ack_error  (error[i]),
 
-        I2C_reader #(
-            .SENSOR_ADDR(SENSOR_ADDRS[i]),
-            .REG_ADDR(SENSOR_REG_ADDRS[i]),
-            .DATA_BYTES(SENSOR_NUM_BYTES[i])
-        ) I2C_reader_inst (
-            .clk        (clk),
-            .rst        (rst),
-            .start      (start),
-            .timestamp  (timestamp),
-            .packet_out (frame_out[i]),
-            .busy       (busy[i]),
-            .done       (done[i]),
-            .ack_error  (error[i]),
+                // `ifdef DEBUG         
+                .stateOut   (states[i]),
+                // `endif
 
-            // `ifdef DEBUG         
-            .stateOut   (states[i]),
-            // `endif
-
-            .i2c (i2c_bus[i])
-        );
-
+                .i2c (i2c_bus[i])
+            );
+        end
     end
 endgenerate
 
