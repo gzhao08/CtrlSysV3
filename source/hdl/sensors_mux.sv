@@ -18,10 +18,7 @@ module sensors_mux (
 );
 
     always_comb begin
-        // Default AXI input when no bus is selected
-        axi_iic.sda_i = 1'b1;
-        axi_iic.scl_i = 1'b1;
-
+    
         for (int i = 0; i < NUM_SENSORS; i++) begin
             // Default: custom reader controls this sensor bus
             i2c_out[i].sda_o = i2c_reader[i].sda_o;
@@ -45,6 +42,7 @@ module sensors_mux (
                 axi_iic.scl_i = i2c_out[i].scl_i;
             end
         end
+        
     end
 
 endmodule
