@@ -1,6 +1,6 @@
 /* 
 Name: Gordon Zhao
-File: sensor_reader.v
+File: sensor_reader.sv
 Description: instantiates NUM_SENSORS readers
 */
 
@@ -8,14 +8,14 @@ import config_pkg::*;
 `include "config_def.svh"
 
 module sensors_reader (
-    input                           clk,
-    input                           rst,
-    input                           start,
-    input logic [63:0]              timestamp,    
-    output raw_frame_t              frame_out,
-    output [NUM_SENSORS-1:0]        busy,
-    output reg [NUM_SENSORS-1:0]    done,
-    output reg [NUM_SENSORS-1:0]    error,
+    input                               clk,
+    input                               rst,
+    input                               start,
+    input logic [63:0]                  timestamp,    
+    output raw_frame_t                  frame_out,
+    output [NUM_SENSORS-1:0]            busy,
+    output logic [NUM_SENSORS-1:0]      done,
+    output logic [NUM_SENSORS-1:0]      error,
 
     // `ifdef DEBUG         
     output logic [3:0] states [NUM_SENSORS-1:0],
