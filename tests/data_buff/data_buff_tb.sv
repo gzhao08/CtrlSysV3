@@ -3,9 +3,9 @@ import config_pkg::*;
 module tb;
 
 logic 	        clk;
-data_frame_t    in_frame;
-data_frame_t 	out_frame;
-data_frame_t 	rdata;
+raw_frame_t     in_frame;
+raw_frame_t 	out_frame;
+raw_frame_t 	rdata;
 logic 			empty;
 logic 			rd_en;
 logic 			wr_en;
@@ -49,10 +49,11 @@ initial begin
         // Drive new values into FIFO
         wr_en <= $random;
         for (int s = 0; s < NUM_SENSORS; s++) begin
-            in_frame.packets[s].init_read_ts <= {$random, $random};
-            in_frame.packets[s].done_read_ts <= {$random, $random};
-            in_frame.packets[s].valid        <= $random;
-            in_frame.packets[s].sensor_data  <= {$random, $random, $random, $random, $random};
+            in_frame[s].init_read_ts <= {$random, $random};
+            in_frame[s].done_read_ts <= {$random, $random};
+            in_frame[s].flags        <= $random;
+            in_frame[s].reserved     <= 16'b0;
+            in_frame[s].sensor_data  <= {$random, $random, $random, $random, $random};
         end
         $display("[%0t] clk i=%0d wr_en=%0d in_frame=0x%0h ", $time, i, wr_en, in_frame);
 

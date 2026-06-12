@@ -11,8 +11,8 @@ module data_buff (
     input logic         rst,
     input logic         wr_en,
     input logic         rd_en,
-    input raw_frame_t  in_frame,
-    output raw_frame_t out_frame,
+    input raw_frame_t   in_frame,
+    output raw_frame_t  out_frame,
     output logic        empty,
     output logic        full
 );

@@ -67,7 +67,10 @@ assign busy = (state == 0) ? 1'b0 : 1'b1;
 always_comb begin
     packet_out.init_read_ts = init_read_ts;
     packet_out.done_read_ts = done_read_ts;
-    packet_out.valid        = ack_error;
+    packet_out.flags        = 32'b0;
+    packet_out.flags[0]     = !ack_error;
+    packet_out.flags[1]     = ack_error;
+    packet_out.reserved     = 16'b0;
     packet_out.sensor_data  = sensor_data;
 end
 
@@ -89,7 +92,7 @@ always @(posedge clk) begin
         nextState <= 0;
         counter <= 7;
         num_data_bytes <= DATA_BYTES - 1;
-        sensor_data <= 143'b0;
+        sensor_data <= 144'b0;
     end else if (tick_en) begin
         if (tickCounter == 63) begin
             tickCounter <= 0;
