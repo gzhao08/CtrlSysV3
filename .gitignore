@@ -1,2 +1,14 @@
 tests\data_buff\sim
 log.md
+
+# Vivado generated project/output products
+*.cache/
+*.gen/
+*.hw/
+*.ip_user_files/
+*.runs/
+*.sim/
+*.jou
+*.log
+*.str
+*.dcp

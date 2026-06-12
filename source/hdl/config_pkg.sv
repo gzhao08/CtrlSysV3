@@ -3,6 +3,9 @@ package config_pkg;
 	parameter string TOP_MODULE_NAME = "design_1";
 	parameter int NUM_SENSORS = 3;
 	parameter int BUFFER_SIZE = 5;
+	parameter int PROTOCOL_WIDTH = 2;
+	parameter logic [PROTOCOL_WIDTH-1:0] PROTOCOL_I2C = 2'd0;
+	parameter logic [PROTOCOL_WIDTH-1:0] PROTOCOL_SPI = 2'd1;
 
 	// Parameters from sen0.json
 	parameter string sen0_Protocol = "I2C";
@@ -22,11 +25,12 @@ package config_pkg;
 	parameter int sen2_Register_Address = 41;
 	parameter int sen2_Num_Bytes = 18;
 
-	// Sensor arrays for generate-loop indexing
-	parameter string SENSOR_PROTOCOLS [NUM_SENSORS] = '{"I2C", "I2C", "I2C"};
-	parameter logic [6:0] SENSOR_ADDRS [NUM_SENSORS] = '{7'd0, 7'd127, 7'd127};
-	parameter logic [7:0] SENSOR_REG_ADDRS [NUM_SENSORS] = '{8'd5, 8'd41, 8'd41};
-	parameter logic [7:0] SENSOR_NUM_BYTES [NUM_SENSORS] = '{8'd18, 8'd18, 8'd18};
+	// Packed sensor config vectors for generate-loop indexing.
+	// Sensor 0 occupies the least-significant slice.
+	parameter logic [PROTOCOL_WIDTH*NUM_SENSORS-1:0] SENSOR_PROTOCOLS = {PROTOCOL_I2C, PROTOCOL_I2C, PROTOCOL_I2C};
+	parameter logic [7*NUM_SENSORS-1:0] SENSOR_ADDRS = {7'd127, 7'd127, 7'd0};
+	parameter logic [8*NUM_SENSORS-1:0] SENSOR_REG_ADDRS = {8'd41, 8'd41, 8'd5};
+	parameter logic [8*NUM_SENSORS-1:0] SENSOR_NUM_BYTES = {8'd18, 8'd18, 8'd18};
 
 	typedef struct packed{
 	    logic [63:0]    init_read_ts; // timestamp that read was initiated

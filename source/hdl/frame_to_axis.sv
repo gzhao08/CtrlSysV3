@@ -25,8 +25,7 @@ module frame_to_axis #(
     output logic                    m_axis_tlast
 );
 
-localparam int PACKET_BITS      = $bits(raw_packet_t);
-localparam int WORDS_PER_PACKET = (PACKET_BITS + data_width - 1) / data_width;
+localparam int WORDS_PER_PACKET = 10;
 localparam int SENSOR_INDEX_WIDTH = (NUM_SENSORS > 1) ? $clog2(NUM_SENSORS) : 1;
 localparam int WORD_INDEX_WIDTH   = (WORDS_PER_PACKET > 1) ? $clog2(WORDS_PER_PACKET) : 1;
 
@@ -44,17 +43,31 @@ logic [SENSOR_INDEX_WIDTH-1:0] sensor_index;
 logic [WORD_INDEX_WIDTH-1:0] word_index;
 int sensor_loop_index;
 
-// Streams each raw_packet_t least-significant word first.
+// 32-bit word order per sensor:
+// 0 init_read_ts[31:0], 1 init_read_ts[63:32],
+// 2 done_read_ts[31:0], 3 done_read_ts[63:32],
+// 4 flags, 5-9 sensor_data with reserved padding in word 9[31:16].
 function automatic logic [data_width-1:0] packet_word(
     input raw_packet_t packet,
     input int unsigned index
 );
-    logic [PACKET_BITS-1:0] packet_bits;
-    logic [PACKET_BITS+data_width-1:0] shifted_packet;
+    logic [31:0] word32;
 begin
-    packet_bits = packet;
-    shifted_packet = {{data_width{1'b0}}, packet_bits} >> (index * data_width);
-    packet_word = shifted_packet[data_width-1:0];
+    case (index)
+        0: word32 = packet.init_read_ts[31:0];
+        1: word32 = packet.init_read_ts[63:32];
+        2: word32 = packet.done_read_ts[31:0];
+        3: word32 = packet.done_read_ts[63:32];
+        4: word32 = packet.flags;
+        5: word32 = packet.sensor_data[31:0];
+        6: word32 = packet.sensor_data[63:32];
+        7: word32 = packet.sensor_data[95:64];
+        8: word32 = packet.sensor_data[127:96];
+        9: word32 = {packet.reserved, packet.sensor_data[143:128]};
+        default: word32 = 32'b0;
+    endcase
+
+    packet_word = word32;
 end
 endfunction
 

@@ -172,14 +172,20 @@ always @(posedge clk) begin
                     if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 4;
                         temp_data <= REG_ADDR;
+                        updateState <= 1;
                     end else begin
                         // if NACK then return to idle state and show error
-                        nextState <= 0;
+                        state <= 0;
                         ack_error <= 1; 
+                        done <= 1;
+                        done_read_ts <= timestamp;
                         sda_drive_low <= 0;
                         scl_follow <= 0;
+                        tick_en <= 0;
+                        tickCounter <= 0;
+                        num_data_bytes <= DATA_BYTES - 1;
+                        updateState <= 0;
                     end
-                    updateState <= 1;
                 end
 
                 else if (updateState) begin
@@ -222,14 +228,20 @@ always @(posedge clk) begin
                     if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 6;
                         temp_data <= REG_ADDR;
+                        updateState <= 1;
                     end else begin
                         // if NACK then return to idle state and show error
-                        nextState <= 0;
+                        state <= 0;
                         ack_error <= 1; 
+                        done <= 1;
+                        done_read_ts <= timestamp;
                         sda_drive_low <= 0;
                         scl_follow <= 0;
+                        tick_en <= 0;
+                        tickCounter <= 0;
+                        num_data_bytes <= DATA_BYTES - 1;
+                        updateState <= 0;
                     end
-                    updateState <= 1;
                 end
 
                 else if (updateState) begin
@@ -289,14 +301,20 @@ always @(posedge clk) begin
                 if (i2c_tick_parity) begin
                     if (i2c.sda_i == 0) begin       // check for ACK
                         nextState <= 9;
+                        updateState <= 1;
                     end else begin
                         // if NACK then return to idle state and show error
-                        nextState <= 0;
+                        state <= 0;
                         ack_error <= 1; 
+                        done <= 1;
+                        done_read_ts <= timestamp;
                         sda_drive_low <= 0;
                         scl_follow <= 0;
+                        tick_en <= 0;
+                        tickCounter <= 0;
+                        num_data_bytes <= DATA_BYTES - 1;
+                        updateState <= 0;
                     end
-                    updateState <= 1;
                 end
 
                 else if (updateState) begin

@@ -28,6 +28,17 @@ def get_required_sensor_field(sensor, field, sensor_file):
     return sensor[field]
 
 
+def sensor_protocol_id(protocol, sensor_file):
+    """Map a protocol string from JSON to the generated SystemVerilog ID."""
+    match protocol.upper():
+        case "I2C":
+            return "PROTOCOL_I2C"
+        case "SPI":
+            return "PROTOCOL_SPI"
+        case _:
+            raise ValueError(f"Unsupported Protocol '{protocol}' in {sensor_file}")
+
+
 # Collect struct files deterministically
 struct_paths = sorted(sv_struct_path.glob("*.sv"))
 
@@ -69,6 +80,10 @@ with open(sv_config_path, "w", encoding="utf-8") as sv_file:
         sv_type, param_val = sv_parameter_type(val)
         sv_file.write(f"\tparameter {sv_type} {key} = {param_val};\n")
 
+    sv_file.write("\tparameter int PROTOCOL_WIDTH = 2;\n")
+    sv_file.write("\tparameter logic [PROTOCOL_WIDTH-1:0] PROTOCOL_I2C = 2'd0;\n")
+    sv_file.write("\tparameter logic [PROTOCOL_WIDTH-1:0] PROTOCOL_SPI = 2'd1;\n")
+
     sv_file.write("\n")
 
     # Write individual flattened sensor parameters too, e.g. sen0_Sensor_Address
@@ -82,7 +97,7 @@ with open(sv_config_path, "w", encoding="utf-8") as sv_file:
             sv_file.write(f"\tparameter {sv_type} {sensor_name}_{key} = {param_val};\n")
         sv_file.write("\n")
 
-    # Write sensor arrays for generate-loop indexing
+    # Write packed sensor config vectors for generate-loop indexing
     protocols = []
     sensor_addrs = []
     reg_addrs = []
@@ -92,21 +107,23 @@ with open(sv_config_path, "w", encoding="utf-8") as sv_file:
         sensor_data = sensor["data"]
         sensor_file = sensor["file"]
 
-        protocols.append(get_required_sensor_field(sensor_data, "Protocol", sensor_file))
+        protocols.append(sensor_protocol_id(get_required_sensor_field(sensor_data, "Protocol", sensor_file), sensor_file))
         sensor_addrs.append(get_required_sensor_field(sensor_data, "Sensor_Address", sensor_file))
         reg_addrs.append(get_required_sensor_field(sensor_data, "Register_Address", sensor_file))
         num_bytes.append(get_required_sensor_field(sensor_data, "Num_Bytes", sensor_file))
 
-    protocol_literals = ", ".join(f'"{p}"' for p in protocols)
-    sensor_addr_literals = ", ".join(f"7'd{addr}" for addr in sensor_addrs)
-    reg_addr_literals = ", ".join(f"8'd{addr}" for addr in reg_addrs)
-    num_byte_literals = ", ".join(f"8'd{n}" for n in num_bytes)
+    # Sensor 0 occupies the least-significant slice, so concatenate in reverse order.
+    protocol_literals = ", ".join(reversed(protocols))
+    sensor_addr_literals = ", ".join(f"7'd{addr}" for addr in reversed(sensor_addrs))
+    reg_addr_literals = ", ".join(f"8'd{addr}" for addr in reversed(reg_addrs))
+    num_byte_literals = ", ".join(f"8'd{n}" for n in reversed(num_bytes))
 
-    sv_file.write("\t// Sensor arrays for generate-loop indexing\n")
-    sv_file.write(f"\tparameter string SENSOR_PROTOCOLS [NUM_SENSORS] = '{{{protocol_literals}}};\n")
-    sv_file.write(f"\tparameter logic [6:0] SENSOR_ADDRS [NUM_SENSORS] = '{{{sensor_addr_literals}}};\n")
-    sv_file.write(f"\tparameter logic [7:0] SENSOR_REG_ADDRS [NUM_SENSORS] = '{{{reg_addr_literals}}};\n")
-    sv_file.write(f"\tparameter logic [7:0] SENSOR_NUM_BYTES [NUM_SENSORS] = '{{{num_byte_literals}}};\n")
+    sv_file.write("\t// Packed sensor config vectors for generate-loop indexing.\n")
+    sv_file.write("\t// Sensor 0 occupies the least-significant slice.\n")
+    sv_file.write(f"\tparameter logic [PROTOCOL_WIDTH*NUM_SENSORS-1:0] SENSOR_PROTOCOLS = {{{protocol_literals}}};\n")
+    sv_file.write(f"\tparameter logic [7*NUM_SENSORS-1:0] SENSOR_ADDRS = {{{sensor_addr_literals}}};\n")
+    sv_file.write(f"\tparameter logic [8*NUM_SENSORS-1:0] SENSOR_REG_ADDRS = {{{reg_addr_literals}}};\n")
+    sv_file.write(f"\tparameter logic [8*NUM_SENSORS-1:0] SENSOR_NUM_BYTES = {{{num_byte_literals}}};\n")
 
     sv_file.write("\n")
 

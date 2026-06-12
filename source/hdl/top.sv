@@ -1,85 +1,116 @@
 import config_pkg::*;
-`include "config_def.svh"
 
 module top(
     input logic clk,
     input logic rst,
 
     inout wire [NUM_SENSORS-1:0] sda,
-    inout wire [NUM_SENSORS-1:0] scl
+    inout wire [NUM_SENSORS-1:0] scl,
+
+    input  logic        s_axi_lite_awvalid,
+    output logic        s_axi_lite_awready,
+    input  logic [9:0]  s_axi_lite_awaddr,
+    input  logic        s_axi_lite_wvalid,
+    output logic        s_axi_lite_wready,
+    input  logic [31:0] s_axi_lite_wdata,
+    output logic [1:0]  s_axi_lite_bresp,
+    output logic        s_axi_lite_bvalid,
+    input  logic        s_axi_lite_bready,
+    input  logic        s_axi_lite_arvalid,
+    output logic        s_axi_lite_arready,
+    input  logic [9:0]  s_axi_lite_araddr,
+    output logic        s_axi_lite_rvalid,
+    input  logic        s_axi_lite_rready,
+    output logic [31:0] s_axi_lite_rdata,
+    output logic [1:0]  s_axi_lite_rresp,
+
+    output logic [31:0] m_axi_s2mm_awaddr,
+    output logic [7:0]  m_axi_s2mm_awlen,
+    output logic [2:0]  m_axi_s2mm_awsize,
+    output logic [1:0]  m_axi_s2mm_awburst,
+    output logic [2:0]  m_axi_s2mm_awprot,
+    output logic [3:0]  m_axi_s2mm_awcache,
+    output logic        m_axi_s2mm_awvalid,
+    input  logic        m_axi_s2mm_awready,
+    output logic [31:0] m_axi_s2mm_wdata,
+    output logic [3:0]  m_axi_s2mm_wstrb,
+    output logic        m_axi_s2mm_wlast,
+    output logic        m_axi_s2mm_wvalid,
+    input  logic        m_axi_s2mm_wready,
+    input  logic [1:0]  m_axi_s2mm_bresp,
+    input  logic        m_axi_s2mm_bvalid,
+    output logic        m_axi_s2mm_bready,
+
+    output logic        s2mm_prmry_reset_out_n,
+    output logic        s2mm_introut,
+    output logic [31:0] axi_dma_tstvec
 );
 
-// 
-logic [63:0] timestamp;
-logic startRead;
-raw_frame_t frame;
-I2C_bus i2c_bus [NUM_SENSORS] ();
+logic        axis_tvalid;
+logic        axis_tready;
+logic [31:0] axis_tdata;
+logic [3:0]  axis_tkeep;
+logic        axis_tlast;
 
-// double flop external rst
-logic rst_meta;
-logic rst_sync;
-always_ff @(posedge clk) begin
-    rst_meta <= rst;
-    rst_sync <= rst_meta;
-end
-
-stopwatch_64 u_stopwatch_64 (
+ctrlsys_core u_ctrlsys_core (
     .clk(clk),
-    .rst(rst_sync),
-    .timestamp_counter(timestamp)
+    .rst(rst),
+    .sda(sda),
+    .scl(scl),
+    .m_axis_tvalid(axis_tvalid),
+    .m_axis_tready(axis_tready),
+    .m_axis_tdata(axis_tdata),
+    .m_axis_tkeep(axis_tkeep),
+    .m_axis_tlast(axis_tlast)
 );
 
-acquisition_controller u_acquisition_controller (
-    .clk(clk),
-	.rst(rst_sync),
-	.enable(~rst_sync),        
-	.timestamp(timestamp),
-	.sample_period(5000),  
-	.startRead(startRead) 
+axi_dma_0 u_axi_dma_0 (
+    .s_axi_lite_aclk(clk),
+    .m_axi_s2mm_aclk(clk),
+    .axi_resetn(~rst),
+
+    .s_axi_lite_awvalid(s_axi_lite_awvalid),
+    .s_axi_lite_awready(s_axi_lite_awready),
+    .s_axi_lite_awaddr(s_axi_lite_awaddr),
+    .s_axi_lite_wvalid(s_axi_lite_wvalid),
+    .s_axi_lite_wready(s_axi_lite_wready),
+    .s_axi_lite_wdata(s_axi_lite_wdata),
+    .s_axi_lite_bresp(s_axi_lite_bresp),
+    .s_axi_lite_bvalid(s_axi_lite_bvalid),
+    .s_axi_lite_bready(s_axi_lite_bready),
+    .s_axi_lite_arvalid(s_axi_lite_arvalid),
+    .s_axi_lite_arready(s_axi_lite_arready),
+    .s_axi_lite_araddr(s_axi_lite_araddr),
+    .s_axi_lite_rvalid(s_axi_lite_rvalid),
+    .s_axi_lite_rready(s_axi_lite_rready),
+    .s_axi_lite_rdata(s_axi_lite_rdata),
+    .s_axi_lite_rresp(s_axi_lite_rresp),
+
+    .m_axi_s2mm_awaddr(m_axi_s2mm_awaddr),
+    .m_axi_s2mm_awlen(m_axi_s2mm_awlen),
+    .m_axi_s2mm_awsize(m_axi_s2mm_awsize),
+    .m_axi_s2mm_awburst(m_axi_s2mm_awburst),
+    .m_axi_s2mm_awprot(m_axi_s2mm_awprot),
+    .m_axi_s2mm_awcache(m_axi_s2mm_awcache),
+    .m_axi_s2mm_awvalid(m_axi_s2mm_awvalid),
+    .m_axi_s2mm_awready(m_axi_s2mm_awready),
+    .m_axi_s2mm_wdata(m_axi_s2mm_wdata),
+    .m_axi_s2mm_wstrb(m_axi_s2mm_wstrb),
+    .m_axi_s2mm_wlast(m_axi_s2mm_wlast),
+    .m_axi_s2mm_wvalid(m_axi_s2mm_wvalid),
+    .m_axi_s2mm_wready(m_axi_s2mm_wready),
+    .m_axi_s2mm_bresp(m_axi_s2mm_bresp),
+    .m_axi_s2mm_bvalid(m_axi_s2mm_bvalid),
+    .m_axi_s2mm_bready(m_axi_s2mm_bready),
+
+    .s2mm_prmry_reset_out_n(s2mm_prmry_reset_out_n),
+    .s_axis_s2mm_tdata(axis_tdata),
+    .s_axis_s2mm_tkeep(axis_tkeep),
+    .s_axis_s2mm_tvalid(axis_tvalid),
+    .s_axis_s2mm_tready(axis_tready),
+    .s_axis_s2mm_tlast(axis_tlast),
+    .s2mm_introut(s2mm_introut),
+    .axi_dma_tstvec(axi_dma_tstvec)
 );
 
-sensors_reader u_sensors_reader (
-    .clk(clk),
-    .rst(rst_sync),
-    .start(startRead),
-    .timestamp(timestamp),    
-    .frame_out(frame),
-    // .busy(),
-    // .done(),
-    // .error(),
-
-    // `ifdef DEBUG         
-    // .states(),
-    // `endif 
-    
-    .i2c_bus(i2c_bus)
-);
-
-// instantiate iobuffers
-genvar i;
-generate
-    for (i = 0; i < NUM_SENSORS; i++) begin : gen_iobuf
-
-        IOBUF IOBUF_scl_inst (
-            .O(i2c_bus[i].scl_i),      // Buffer output (internal read path)
-            .IO(scl[i]),   // Buffer inout port (connect to top-level port)
-            .I(1'b0),      // Buffer input (internal write path)
-            .T(i2c_bus[i].scl_t)     // 3-state enable: High=input, Low=output
-        );
-
-        IOBUF IOBUF_sda_inst (
-            .O(i2c_bus[i].sda_i),      // Buffer output (internal read path)
-            .IO(sda[i]),   // Buffer inout port (connect to top-level port)
-            .I(1'b0),      // Buffer input (internal write path)
-            .T(i2c_bus[i].sda_t)     // 3-state enable: High=input, Low=output
-        );
-
-        // assign scl[i] = i2c_bus[i].scl_t ? 1'bz : 1'b0;
-        // assign sda[i] = i2c_bus[i].sda_t ? 1'bz : 1'b0;
-
-        // assign i2c_bus[i].scl_i = scl[i];
-        // assign i2c_bus[i].sda_i = sda[i];
-    end
-endgenerate
-
-endmodule;
+endmodule

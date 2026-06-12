@@ -28,11 +28,16 @@ module sensors_reader (
 genvar i;
 generate
     for (i = 0; i < NUM_SENSORS; i++) begin : gen_sensor_reader
-        if (SENSOR_PROTOCOLS[i] == "I2C") begin
+        localparam logic [PROTOCOL_WIDTH-1:0] SENSOR_PROTOCOL = SENSOR_PROTOCOLS[i*PROTOCOL_WIDTH +: PROTOCOL_WIDTH];
+        localparam logic [6:0] SENSOR_ADDR = SENSOR_ADDRS[i*7 +: 7];
+        localparam logic [7:0] SENSOR_REG_ADDR = SENSOR_REG_ADDRS[i*8 +: 8];
+        localparam logic [7:0] SENSOR_NUM_BYTE = SENSOR_NUM_BYTES[i*8 +: 8];
+
+        if (SENSOR_PROTOCOL == PROTOCOL_I2C) begin
             I2C_reader #(
-                .SENSOR_ADDR(SENSOR_ADDRS[i]),
-                .REG_ADDR(SENSOR_REG_ADDRS[i]),
-                .DATA_BYTES(SENSOR_NUM_BYTES[i])
+                .SENSOR_ADDR(SENSOR_ADDR),
+                .REG_ADDR(SENSOR_REG_ADDR),
+                .DATA_BYTES(SENSOR_NUM_BYTE)
             ) I2C_reader_inst (
                 .clk        (clk),
                 .rst        (rst),
