@@ -66,8 +66,8 @@ localparam integer ADDR_LSB = (C_S_AXI_DATA_WIDTH/32) + 1; // 2 for 32-bit AXI d
 localparam integer OPT_MEM_ADDR_BITS = 3;                  // address bits [5:2] => 16 registers
 
 // CPU-writable registers
-reg [31:0] slv_reg0 = {3'b001,29'b0}; // 0x00 control
-reg [31:0] slv_reg1 = 32'b0; // 0x04 sample_period
+reg [31:0] slv_reg0 = 32'h00000001; // 0x00 control
+reg [31:0] slv_reg1 = 32'd5000; // 0x04 sample_period
 reg [31:0] slv_reg2 = 32'b0; // 0x08 sensor_enable_mask
 
 // AXI write channel state
@@ -124,8 +124,8 @@ always @(posedge S_AXI_ACLK) begin
         axi_bvalid   <= 1'b0;
         axi_bresp    <= 2'b00;
 
-        slv_reg0 <= 32'h00000000;
-        slv_reg1 <= 32'h00000000;
+        slv_reg0 <= 32'h00000001;
+        slv_reg1 <= 32'd5000;
         slv_reg2 <= 32'h00000000;
 
         clear_error          <= 1'b0;

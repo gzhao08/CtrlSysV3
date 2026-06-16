@@ -100,6 +100,7 @@ axil_regs_slave_lite_v1_0_S00_AXI #(
 
     .clear_error          (clear_error),
     .reset_sample_counter (reset_sample_counter),
+    .cpu_clear_irq        (cpu_clear_irq),
 
     .busy                 (busy),
     .error                (error),

@@ -15,7 +15,7 @@ def compile():
 
     reordered = sorted(file_names, key=lambda word: not word.startswith(prefix))
 
-    command = ["iverilog", "-g2012", "-tnull"] +  ["interface/I2C_bus.sv"] + reordered
+    command = ["iverilog", "-g2012", "-tnull"] + reordered
 
     print(" ".join(command))
 

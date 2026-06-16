@@ -7,12 +7,20 @@ Description: instantiates NUM_SENSORS readers
 import config_pkg::*;
 `include "config_def.svh"
 
-module sensors_reader (
+module sensors_reader #(
+    parameter integer NUM_SENSORS = 3,
+    parameter integer PROTOCOL_WIDTH = 2,
+    parameter logic [PROTOCOL_WIDTH*NUM_SENSORS-1:0] SENSOR_PROTOCOLS = 6'b000000,
+    parameter logic [7*NUM_SENSORS-1:0] SENSOR_ADDRS = {7'd127, 7'd127, 7'd0},
+    parameter logic [8*NUM_SENSORS-1:0] SENSOR_REG_ADDRS = {8'd41, 8'd41, 8'd5},
+    parameter logic [8*NUM_SENSORS-1:0] SENSOR_NUM_BYTES = {8'd18, 8'd18, 8'd18}
+)(
     input                               clk,
     input                               rst,
     input                               start,
+    input logic [NUM_SENSORS-1:0]       sensor_enable_mask,
     input logic [63:0]                  timestamp,    
-    output raw_frame_t                  frame_out,
+    output raw_packet_t                 frame_out [NUM_SENSORS],
     output [NUM_SENSORS-1:0]            busy,
     output logic [NUM_SENSORS-1:0]      done,
     output logic [NUM_SENSORS-1:0]      error,
@@ -20,8 +28,13 @@ module sensors_reader (
     // `ifdef DEBUG         
     output logic [3:0] states [NUM_SENSORS-1:0],
     // `endif 
-    
-    I2C_bus.master i2c_bus [NUM_SENSORS]
+
+    input  logic [NUM_SENSORS-1:0] i2c_sda_i,
+    output logic [NUM_SENSORS-1:0] i2c_sda_o,
+    output logic [NUM_SENSORS-1:0] i2c_sda_t,
+    input  logic [NUM_SENSORS-1:0] i2c_scl_i,
+    output logic [NUM_SENSORS-1:0] i2c_scl_o,
+    output logic [NUM_SENSORS-1:0] i2c_scl_t
 );
 
 // instantiate individual readers
@@ -41,7 +54,7 @@ generate
             ) I2C_reader_inst (
                 .clk        (clk),
                 .rst        (rst),
-                .start      (start),
+                .start      (start && sensor_enable_mask[i]),
                 .timestamp  (timestamp),
                 .packet_out (frame_out[i]),
                 .busy       (busy[i]),
@@ -52,7 +65,12 @@ generate
                 .stateOut   (states[i]),
                 // `endif
 
-                .i2c (i2c_bus[i])
+                .i2c_sda_i  (i2c_sda_i[i]),
+                .i2c_sda_o  (i2c_sda_o[i]),
+                .i2c_sda_t  (i2c_sda_t[i]),
+                .i2c_scl_i  (i2c_scl_i[i]),
+                .i2c_scl_o  (i2c_scl_o[i]),
+                .i2c_scl_t  (i2c_scl_t[i])
             );
         end
     end

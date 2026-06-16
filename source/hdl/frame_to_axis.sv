@@ -7,6 +7,7 @@ Description: an AXI-Stream producer. takes sensor frames from the FIFO and strea
 import config_pkg::*;
 
 module frame_to_axis #(
+    parameter int NUM_SENSORS = 3,
     parameter int data_width = 32
 )(
     input logic         clk,
@@ -15,7 +16,7 @@ module frame_to_axis #(
     // To/from Buffer
     output logic        rd_en,
     input logic         empty,
-    input raw_frame_t   frame,
+    input raw_packet_t  frame [NUM_SENSORS],
 
     // AXI
     output logic                    m_axis_tvalid,
@@ -37,7 +38,7 @@ typedef enum logic [1:0] {
 } state_t;
 
 state_t state;
-raw_frame_t active_frame;
+raw_packet_t active_frame [NUM_SENSORS];
 
 logic [SENSOR_INDEX_WIDTH-1:0] sensor_index;
 logic [WORD_INDEX_WIDTH-1:0] word_index;

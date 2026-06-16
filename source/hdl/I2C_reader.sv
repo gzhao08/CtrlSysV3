@@ -24,8 +24,13 @@ module I2C_reader #(
     // `ifdef DEBUG         
     output [3:0] stateOut,
     // `endif 
-    
-    I2C_bus.master i2c
+
+    input  wire             i2c_sda_i,
+    output wire             i2c_sda_o,
+    output wire             i2c_sda_t,
+    input  wire             i2c_scl_i,
+    output wire             i2c_scl_o,
+    output wire             i2c_scl_t
 );	
 
 
@@ -54,11 +59,11 @@ logic tick_en = 0;
 logic i2c_tick = 0; // basically an 800kHz clock
 logic i2c_tick_parity = 1;
 
-assign i2c.sda_o = 1'b0;
-assign i2c.sda_t = sda_drive_low ? 1'b0 : 1'b1;
+assign i2c_sda_o = 1'b0;
+assign i2c_sda_t = sda_drive_low ? 1'b0 : 1'b1;
 
-assign i2c.scl_o = 1'b0;
-assign i2c.scl_t = scl_follow ? i2c_tick_parity : 1'b1;
+assign i2c_scl_o = 1'b0;
+assign i2c_scl_t = scl_follow ? i2c_tick_parity : 1'b1;
 
 assign stateOut = state; // temp
 
@@ -169,7 +174,7 @@ always @(posedge clk) begin
                 // check for ACK
                 // sensor must actively pull SDA low
                 if (i2c_tick_parity) begin
-                    if (i2c.sda_i == 0) begin       // check for ACK
+                    if (i2c_sda_i == 0) begin       // check for ACK
                         nextState <= 4;
                         temp_data <= REG_ADDR;
                         updateState <= 1;
@@ -225,7 +230,7 @@ always @(posedge clk) begin
             5: begin
                 // check for ACK; same as state 3
                 if (i2c_tick_parity) begin
-                    if (i2c.sda_i == 0) begin       // check for ACK
+                    if (i2c_sda_i == 0) begin       // check for ACK
                         nextState <= 6;
                         temp_data <= REG_ADDR;
                         updateState <= 1;
@@ -299,7 +304,7 @@ always @(posedge clk) begin
                 // check for ACK
                 // sensor must actively pull SDA low
                 if (i2c_tick_parity) begin
-                    if (i2c.sda_i == 0) begin       // check for ACK
+                    if (i2c_sda_i == 0) begin       // check for ACK
                         nextState <= 9;
                         updateState <= 1;
                     end else begin
@@ -339,7 +344,7 @@ always @(posedge clk) begin
 
                 else if (i2c_tick_parity) begin 
                     // read and store data
-                    sensor_data[num_data_bytes*8+counter] <= i2c.sda_i;
+                    sensor_data[num_data_bytes*8+counter] <= i2c_sda_i;
                     if (counter == 0) begin
                         counter <= 7; // reset counter
                         updateState <= 1;

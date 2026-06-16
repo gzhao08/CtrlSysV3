@@ -6,13 +6,16 @@ Description: synchronous FIFO for storing sensor data frames (multiple sensor pa
 
 import config_pkg::*;
 
-module data_buff (
+module data_buff #(
+    parameter integer NUM_SENSORS = 3,
+    parameter integer BUFFER_SIZE = 5
+)(
     input logic         clk,
     input logic         rst,
     input logic         wr_en,
     input logic         rd_en,
-    input raw_frame_t   in_frame,
-    output raw_frame_t  out_frame,
+    input raw_packet_t  in_frame [NUM_SENSORS],
+    output raw_packet_t out_frame [NUM_SENSORS],
     output logic        empty,
     output logic        full
 );

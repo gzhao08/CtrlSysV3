@@ -22,6 +22,12 @@ module top_tb;
     logic s_axi_lite_rready;
     logic [31:0] s_axi_lite_rdata;
     logic [1:0] s_axi_lite_rresp;
+    logic axi_iic_sda_i;
+    logic axi_iic_sda_o;
+    logic axi_iic_sda_t;
+    logic axi_iic_scl_i;
+    logic axi_iic_scl_o;
+    logic axi_iic_scl_t;
     logic [31:0] m_axi_s2mm_awaddr;
     logic [7:0] m_axi_s2mm_awlen;
     logic [2:0] m_axi_s2mm_awsize;
@@ -52,6 +58,12 @@ module top_tb;
         .rst(rst),
         .sda(sda),
         .scl(scl),
+        .axi_iic_sda_i(axi_iic_sda_i),
+        .axi_iic_sda_o(axi_iic_sda_o),
+        .axi_iic_sda_t(axi_iic_sda_t),
+        .axi_iic_scl_i(axi_iic_scl_i),
+        .axi_iic_scl_o(axi_iic_scl_o),
+        .axi_iic_scl_t(axi_iic_scl_t),
         .s_axi_lite_awvalid(s_axi_lite_awvalid),
         .s_axi_lite_awready(s_axi_lite_awready),
         .s_axi_lite_awaddr(s_axi_lite_awaddr),
@@ -104,6 +116,10 @@ module top_tb;
         s_axi_lite_arvalid = 1'b0;
         s_axi_lite_araddr = 10'b0;
         s_axi_lite_rready = 1'b1;
+        axi_iic_sda_o = 1'b0;
+        axi_iic_sda_t = 1'b1;
+        axi_iic_scl_o = 1'b0;
+        axi_iic_scl_t = 1'b1;
         m_axi_s2mm_awready = 1'b1;
         m_axi_s2mm_wready = 1'b1;
         m_axi_s2mm_bresp = 2'b00;
