@@ -1,4 +1,4 @@
 all:
 {
-  [destination_device = pl] design_1_wrapper.bit
+  design_1_wrapper.bit
 }
