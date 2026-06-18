@@ -86,6 +86,7 @@ set bif_path [file normalize [file join $work_dir "${bit_base}.bif"]]
 set bin_path [file normalize [file join $work_dir "${bit_name}.bin"]]
 
 file copy -force $bit_src $bit_dst
+file delete -force $bin_path
 
 set fp [open $bif_path w]
 puts $fp "all:"
@@ -106,6 +107,11 @@ if {$bootgen_status != 0} {
     error "bootgen failed: $bootgen_result"
 }
 
+if {![file exists $bin_path]} {
+    error "bootgen completed but did not create expected output: $bin_path"
+}
+
 puts "Bitstream source: $bit_src"
 puts "Copied bitstream: $bit_dst"
 puts "Generated bin:    $bin_path"
+puts "Generated mtime:  [clock format [file mtime $bin_path]]"
