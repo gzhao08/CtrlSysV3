@@ -55,10 +55,13 @@ constexpr std::uint32_t S2mmDmasr = 0x34;
 }
 
 namespace IicReg {
+constexpr std::uint32_t IrqStatus = 0x20;
 constexpr std::uint32_t Reset = 0x40;
 constexpr std::uint32_t Control = 0x100;
 constexpr std::uint32_t Status = 0x104;
 constexpr std::uint32_t TxFifo = 0x108;
+constexpr std::uint32_t TxFifoOccupancy = 0x114;
+constexpr std::uint32_t RxFifoOccupancy = 0x118;
 }
 
 namespace IicCtrl {
@@ -67,8 +70,11 @@ constexpr std::uint32_t TxFifoReset = 1u << 1;
 }
 
 namespace IicStatus {
-constexpr std::uint32_t TxFifoFull = 1u << 4;
+constexpr std::uint32_t AddressedAsSlave = 1u << 0;
 constexpr std::uint32_t BusBusy = 1u << 2;
+constexpr std::uint32_t TxFifoFull = 1u << 4;
+constexpr std::uint32_t RxFifoFull = 1u << 5;
+constexpr std::uint32_t RxFifoEmpty = 1u << 6;
 constexpr std::uint32_t TxFifoEmpty = 1u << 7;
 }
 
@@ -152,6 +158,42 @@ std::string hex32(std::uint32_t value) {
     return oss.str();
 }
 
+std::string iic_status_summary(std::uint32_t status) {
+    std::ostringstream oss;
+    oss << "status=" << hex32(status)
+        << " bus_busy=" << ((status & IicStatus::BusBusy) != 0)
+        << " tx_empty=" << ((status & IicStatus::TxFifoEmpty) != 0)
+        << " tx_full=" << ((status & IicStatus::TxFifoFull) != 0)
+        << " rx_empty=" << ((status & IicStatus::RxFifoEmpty) != 0)
+        << " rx_full=" << ((status & IicStatus::RxFifoFull) != 0)
+        << " addressed_as_slave=" << ((status & IicStatus::AddressedAsSlave) != 0);
+    return oss.str();
+}
+
+void print_iic_status(const MappedRegion& iic, const std::string& label) {
+    const auto control = iic.read32(IicReg::Control);
+    const auto status = iic.read32(IicReg::Status);
+    const auto irq_status = iic.read32(IicReg::IrqStatus);
+    const auto tx_occupancy = iic.read32(IicReg::TxFifoOccupancy);
+    const auto rx_occupancy = iic.read32(IicReg::RxFifoOccupancy);
+
+    std::cout << label
+              << " control=" << hex32(control)
+              << " " << iic_status_summary(status)
+              << " irq_status=" << hex32(irq_status)
+              << " tx_occ=" << tx_occupancy
+              << " rx_occ=" << rx_occupancy
+              << '\n';
+
+    if (control == 0xffffffffu || status == 0xffffffffu) {
+        std::cout << "  hint: AXI IIC registers read as all ones; check --iic-base against Vivado Address Editor.\n";
+    } else if ((status & IicStatus::BusBusy) != 0 && (status & IicStatus::TxFifoEmpty) == 0) {
+        std::cout << "  hint: AXI IIC still has queued TX data while the bus is busy; check SCL/SDA pull-ups, selected sensor wiring, and mux pins.\n";
+    } else if ((status & IicStatus::BusBusy) != 0) {
+        std::cout << "  hint: I2C bus is busy/stuck; one selected SCL/SDA line may be held low.\n";
+    }
+}
+
 void sleep_ms(unsigned ms) {
     std::this_thread::sleep_for(std::chrono::milliseconds(ms));
 }
@@ -164,37 +206,40 @@ void iic_reset(const MappedRegion& iic) {
     sleep_ms(2);
 }
 
-void wait_tx_space(const MappedRegion& iic) {
-    for (int tries = 0; tries < 10000; ++tries) {
+void wait_tx_space(const MappedRegion& iic, std::uint32_t timeout_ms) {
+    const std::uint32_t tries_limit = timeout_ms * 10u + 1u;
+    for (std::uint32_t tries = 0; tries < tries_limit; ++tries) {
         if ((iic.read32(IicReg::Status) & IicStatus::TxFifoFull) == 0) {
             return;
         }
         usleep(100);
     }
-    throw std::runtime_error("AXI IIC TX FIFO stayed full");
+    throw std::runtime_error("AXI IIC TX FIFO stayed full; " + iic_status_summary(iic.read32(IicReg::Status)));
 }
 
-void wait_iic_idle(const MappedRegion& iic) {
-    for (int tries = 0; tries < 10000; ++tries) {
+void wait_iic_idle(const MappedRegion& iic, std::uint32_t timeout_ms) {
+    const std::uint32_t tries_limit = timeout_ms * 10u + 1u;
+    for (std::uint32_t tries = 0; tries < tries_limit; ++tries) {
         const auto status = iic.read32(IicReg::Status);
         if ((status & IicStatus::BusBusy) == 0 && (status & IicStatus::TxFifoEmpty) != 0) {
             return;
         }
         usleep(100);
     }
-    throw std::runtime_error("AXI IIC did not become idle");
+    print_iic_status(iic, "timeout AXI IIC");
+    throw std::runtime_error("AXI IIC did not become idle; " + iic_status_summary(iic.read32(IicReg::Status)));
 }
 
-void iic_push(const MappedRegion& iic, std::uint32_t value) {
-    wait_tx_space(iic);
+void iic_push(const MappedRegion& iic, std::uint32_t value, std::uint32_t timeout_ms) {
+    wait_tx_space(iic, timeout_ms);
     iic.write32(IicReg::TxFifo, value);
 }
 
-void iic_write_reg(const MappedRegion& iic, std::uint8_t addr, std::uint8_t reg, std::uint8_t value) {
-    iic_push(iic, IicDyn::Start | ((addr & 0x7f) << 1));
-    iic_push(iic, reg);
-    iic_push(iic, IicDyn::Stop | value);
-    wait_iic_idle(iic);
+void iic_write_reg(const MappedRegion& iic, std::uint8_t addr, std::uint8_t reg, std::uint8_t value, std::uint32_t timeout_ms) {
+    iic_push(iic, IicDyn::Start | ((addr & 0x7f) << 1), timeout_ms);
+    iic_push(iic, reg, timeout_ms);
+    iic_push(iic, IicDyn::Stop | value, timeout_ms);
+    wait_iic_idle(iic, timeout_ms);
 }
 
 void select_sensor_for_axi_iic(const MappedRegion& ctrl, std::uint32_t sensor_index) {
@@ -203,16 +248,18 @@ void select_sensor_for_axi_iic(const MappedRegion& ctrl, std::uint32_t sensor_in
     sleep_ms(2);
 }
 
-void init_bno055_on_selected_bus(const MappedRegion& iic) {
+void init_bno055_on_selected_bus(const MappedRegion& iic, std::uint32_t timeout_ms) {
     iic_reset(iic);
-    iic_write_reg(iic, kBno055Addr, Bno055::PageId, 0x00);
-    iic_write_reg(iic, kBno055Addr, Bno055::OprMode, Bno055::ConfigMode);
+    print_iic_status(iic, "after AXI IIC reset");
+    iic_write_reg(iic, kBno055Addr, Bno055::PageId, 0x00, timeout_ms);
+    iic_write_reg(iic, kBno055Addr, Bno055::OprMode, Bno055::ConfigMode, timeout_ms);
     sleep_ms(25);
-    iic_write_reg(iic, kBno055Addr, Bno055::PwrMode, Bno055::NormalPower);
-    iic_write_reg(iic, kBno055Addr, Bno055::SysTrigger, 0x00);
-    iic_write_reg(iic, kBno055Addr, Bno055::UnitSel, 0x00);
-    iic_write_reg(iic, kBno055Addr, Bno055::OprMode, Bno055::NdofMode);
+    iic_write_reg(iic, kBno055Addr, Bno055::PwrMode, Bno055::NormalPower, timeout_ms);
+    iic_write_reg(iic, kBno055Addr, Bno055::SysTrigger, 0x00, timeout_ms);
+    iic_write_reg(iic, kBno055Addr, Bno055::UnitSel, 0x00, timeout_ms);
+    iic_write_reg(iic, kBno055Addr, Bno055::OprMode, Bno055::NdofMode, timeout_ms);
     sleep_ms(25);
+    print_iic_status(iic, "after BNO055 config");
 }
 
 void print_ctrl_status(const MappedRegion& ctrl) {
@@ -242,6 +289,7 @@ void usage(const char* argv0) {
         << "  --ctrl-base <addr>  ctrlsys_core AXI-Lite base, default 0x40000000\n"
         << "  --dma-base <addr>   AXI DMA AXI-Lite base, default 0x40400000\n"
         << "  --iic-base <addr>   AXI IIC AXI-Lite base, default 0x41600000\n"
+        << "  --iic-timeout-ms <ms> AXI IIC transaction timeout, default 1000\n"
         << "  --poll-ms <ms>      DMA/status poll duration, default 10000\n"
         << "  --help              show this help\n";
 }
@@ -252,6 +300,7 @@ int main(int argc, char** argv) {
     std::uint64_t ctrl_base = kCtrlBaseDefault;
     std::uint64_t dma_base = kDmaBaseDefault;
     std::uint64_t iic_base = kIicBaseDefault;
+    std::uint32_t iic_timeout_ms = 1000;
     std::uint32_t poll_ms = 10000;
 
     try {
@@ -270,6 +319,8 @@ int main(int argc, char** argv) {
                 dma_base = parse_u64(value("--dma-base"));
             } else if (arg == "--iic-base") {
                 iic_base = parse_u64(value("--iic-base"));
+            } else if (arg == "--iic-timeout-ms") {
+                iic_timeout_ms = static_cast<std::uint32_t>(parse_u64(value("--iic-timeout-ms")));
             } else if (arg == "--poll-ms") {
                 poll_ms = static_cast<std::uint32_t>(parse_u64(value("--poll-ms")));
             } else if (arg == "--help") {
@@ -291,10 +342,15 @@ int main(int argc, char** argv) {
         close(fd);
 
         std::cout << "Initializing two BNO055 sensors through AXI IIC\n";
+        std::cout << "ctrlsys_core base: 0x" << std::hex << ctrl_base << std::dec << '\n';
+        std::cout << "axi_dma base:      0x" << std::hex << dma_base << std::dec << '\n';
+        std::cout << "axi_iic base:      0x" << std::hex << iic_base << std::dec << '\n';
+        print_iic_status(iic, "initial AXI IIC");
         for (std::uint32_t sensor = 0; sensor < kNumSensors; ++sensor) {
             std::cout << "sensor " << sensor << ": select mux row and write BNO055 config\n";
             select_sensor_for_axi_iic(ctrl, sensor);
-            init_bno055_on_selected_bus(iic);
+            print_iic_status(iic, "after selecting sensor " + std::to_string(sensor));
+            init_bno055_on_selected_bus(iic, iic_timeout_ms);
         }
 
         std::cout << "Starting FPGA reads at 1 second sample period\n";
