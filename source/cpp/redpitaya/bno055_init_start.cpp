@@ -296,6 +296,17 @@ void select_sensor_for_axi_iic(const MappedRegion& ctrl, std::uint32_t sensor_in
     sleep_ms(2);
 }
 
+void print_mux_selection(const MappedRegion& ctrl, std::uint32_t sensor_index) {
+    const auto control = ctrl.read32(CtrlReg::Control);
+    const auto mask = ctrl.read32(CtrlReg::SensorEnableMask);
+
+    std::cout << "selected sensor " << sensor_index
+              << " ctrl_control=" << hex32(control)
+              << " use_axi_iic=" << ((control & CtrlBit::UseAxiIic) != 0)
+              << " sensor_enable_mask=" << hex32(mask)
+              << '\n';
+}
+
 void init_bno055_on_selected_bus(const MappedRegion& iic, std::uint8_t bno_addr, std::uint32_t timeout_ms) {
     iic_reset(iic);
     print_iic_status(iic, "after AXI IIC reset");
@@ -406,6 +417,7 @@ int main(int argc, char** argv) {
         for (std::uint32_t sensor = 0; sensor < kNumSensors; ++sensor) {
             std::cout << "sensor " << sensor << ": select mux row and write BNO055 config\n";
             select_sensor_for_axi_iic(ctrl, sensor);
+            print_mux_selection(ctrl, sensor);
             print_iic_status(iic, "after selecting sensor " + std::to_string(sensor));
             init_bno055_on_selected_bus(iic, bno_addr, iic_timeout_ms);
         }
